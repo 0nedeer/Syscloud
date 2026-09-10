@@ -1,12 +1,12 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
-from app.schemas import RecordingCreateResponse, RecordingDetailResponse
-from app.services.queries import get_recording
+from app.schemas import RecordingCreateResponse, RecordingDetailResponse, RecordingListResponse
+from app.services.queries import get_recording, list_recordings
 from app.services.uploads import create_recording
 
 router = APIRouter(prefix="/v1/recordings", tags=["recordings"])
@@ -22,3 +22,12 @@ async def recording_detail(
     recording_id: UUID, session: Annotated[AsyncSession, Depends(get_session)]
 ):
     return await get_recording(session, str(recording_id))
+
+
+@router.get("", response_model=RecordingListResponse)
+async def recordings_list(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+):
+    return await list_recordings(session, page, page_size)
