@@ -10,4 +10,6 @@ uv run --frozen uvicorn app.main:create_app --factory --host 127.0.0.1 --port 80
 
 访问 http://127.0.0.1:8000/docs 查看当前接口。迁移前停止应用并备份数据库与音频。
 
+配置模型地址、密钥、协议及模型名称后，另开终端执行 `uv run --frozen python -m app.worker`。API 与 Worker 共享数据库和音频目录。也可使用 `docker compose up --build -d` 编排全部服务。
+
 提交前运行 `uv run --frozen ruff check .` 与 `git diff --check`，核对配置和文档是否与实现一致。

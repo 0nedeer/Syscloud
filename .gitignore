@@ -25,5 +25,5 @@ tmp/
 .DS_Store
 Thumbs.db
 
-# Local collaboration reports and history backups
+# Local collaboration reports and machine-specific notes
 .local/
