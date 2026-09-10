@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
+from app.models import TaskStatus
+
 
 def iso_utc(value: datetime | None) -> str | None:
     if value is None:
@@ -27,7 +29,7 @@ class TaskError(ApiModel):
 class TaskResponse(ApiModel):
     task_id: UUID
     recording_id: UUID
-    status: str
+    status: TaskStatus
     attempt_no: int
     retry_of_task_id: UUID | None = None
     transcript: str | None = None
@@ -79,6 +81,8 @@ class RecordingDetailResponse(ApiModel):
     size_bytes: int
     created_at: datetime
     latest_task: TaskResponse | None
+    transcript: str | None = None
+    summary_result: dict[str, Any] | None = None
 
     @field_serializer("created_at")
     def serialize_created_at(self, value: datetime) -> str:
