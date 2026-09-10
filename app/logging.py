@@ -11,6 +11,7 @@ FIELDS = (
     "request_id",
     "recording_id",
     "task_id",
+    "storage_key",
     "previous_status",
     "new_status",
     "duration_ms",

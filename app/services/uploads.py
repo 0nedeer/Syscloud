@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 from anyio import to_thread
+from sqlalchemy import select
 from starlette.datastructures import UploadFile
 
 from app.db import Database
@@ -14,16 +15,46 @@ logger = logging.getLogger("app.uploads")
 
 
 async def create_recording(database: Database, storage: LocalStorage, file: UploadFile):
-    # Finish the bounded file/DB operation if a client disconnects during an await.
-    # A committed upload remains valid even if its response can no longer be delivered.
+    # Keep ownership of the upload spool until disk/DB work has actually stopped.
+    # Cancellation of an await cannot safely stop an OS write in another thread.
     operation = asyncio.create_task(_create_recording(database, storage, file))
-    try:
-        return await asyncio.shield(operation)
-    except asyncio.CancelledError:
+    cancelled = False
+    while True:
         try:
-            await asyncio.shield(operation)
-        finally:
+            result = await asyncio.shield(operation)
+        except asyncio.CancelledError:
+            cancelled = True
+            if operation.cancelled():
+                raise
+        except Exception:
+            if cancelled:
+                raise asyncio.CancelledError from None
             raise
+        else:
+            if cancelled:
+                raise asyncio.CancelledError
+            return result
+
+
+async def _find_committed_upload(database, result, storage_key) -> bool:
+    # A fresh session avoids the failed transaction's identity map/snapshot.
+    # Absence is not proof of rollback: an in-flight COMMIT may still complete.
+    try:
+        async with database.sessions() as session:
+            task_id = await session.scalar(
+                select(Task.id)
+                .join(Recording)
+                .where(
+                    Recording.id == str(result.recording_id),
+                    Recording.storage_key == storage_key,
+                    Recording.deleted_at.is_(None),
+                    Task.id == str(result.task_id),
+                    Task.attempt_no == 1,
+                )
+            )
+            return task_id is not None
+    except Exception:
+        return False
 
 
 async def _create_recording(database: Database, storage: LocalStorage, file: UploadFile):
@@ -59,16 +90,33 @@ async def _create_recording(database: Database, storage: LocalStorage, file: Upl
             await session.flush()
             result = RecordingCreateResponse(recording_id=recording.id, task_id=task.id)
             commit_attempted = True
-    except BaseException:
+    except BaseException as exc:
         if not commit_attempted:
             try:
                 await to_thread.run_sync(storage.delete, stored.storage_key)
             except StorageError:
-                logger.error("upload_cleanup_failed", extra={"error_code": "storage_unavailable"})
+                logger.error(
+                    "upload_cleanup_failed",
+                    extra={"storage_key": stored.storage_key, "error_code": "storage_unavailable"},
+                )
         else:
-            # A lost COMMIT acknowledgement is ambiguous: never delete a possibly referenced file.
-            logger.error("upload_commit_uncertain", extra={"error_code": "commit_uncertain"})
-        raise
+            context = {
+                "recording_id": str(result.recording_id),
+                "task_id": str(result.task_id),
+                "storage_key": stored.storage_key,
+            }
+            confirmed = isinstance(exc, Exception) and await _find_committed_upload(
+                database, result, stored.storage_key
+            )
+            if confirmed:
+                logger.warning("upload_commit_reconciled", extra=context)
+            else:
+                logger.error(
+                    "upload_commit_uncertain", extra={**context, "error_code": "commit_uncertain"}
+                )
+                raise
+        if not commit_attempted:
+            raise
     logger.info("recording_uploaded", extra={"recording_id": recording.id, "task_id": task.id})
     logger.info(
         "task_created",
