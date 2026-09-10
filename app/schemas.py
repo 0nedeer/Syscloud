@@ -1,10 +1,10 @@
 """Public response models shared by recording and task endpoints."""
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_serializer
 
 from app.models import TaskStatus
 
@@ -26,6 +26,16 @@ class TaskError(ApiModel):
     message: str
 
 
+class SummaryResult(ApiModel):
+    """The same strict contract is used for API output and future LLM validation."""
+
+    model_config = ConfigDict(strict=True, extra="forbid")
+
+    summary: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+    key_points: list[str]
+    todos: list[str]
+
+
 class TaskResponse(ApiModel):
     task_id: UUID
     recording_id: UUID
@@ -33,7 +43,7 @@ class TaskResponse(ApiModel):
     attempt_no: int
     retry_of_task_id: UUID | None = None
     transcript: str | None = None
-    summary_result: dict[str, Any] | None = None
+    summary_result: SummaryResult | None = None
     error: TaskError | None = None
     created_at: datetime
     started_at: datetime | None = None
@@ -82,7 +92,7 @@ class RecordingDetailResponse(ApiModel):
     created_at: datetime
     latest_task: TaskResponse | None
     transcript: str | None = None
-    summary_result: dict[str, Any] | None = None
+    summary_result: SummaryResult | None = None
 
     @field_serializer("created_at")
     def serialize_created_at(self, value: datetime) -> str:

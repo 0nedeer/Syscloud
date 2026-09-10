@@ -1,6 +1,7 @@
 import logging
 from datetime import UTC, datetime
 
+from anyio import to_thread
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,8 +24,9 @@ async def delete_recording(session: AsyncSession, storage: LocalStorage, recordi
         storage_key = recording.storage_key
         # Commit the tombstone before touching the filesystem. No new task or result
         # may treat this recording as live after this transaction commits.
+    logger.info("recording_delete_requested", extra={"recording_id": recording_id})
     try:
-        await __import__("anyio").to_thread.run_sync(storage.delete, storage_key)
+        await to_thread.run_sync(storage.delete, storage_key)
     except StorageError:
         logger.error(
             "recording_delete_storage_failed",
