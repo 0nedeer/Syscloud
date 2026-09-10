@@ -28,6 +28,8 @@ services:
     restart: unless-stopped
   migrate:
     <<: *app
+    volumes:
+      - recordings_data:/service/data/recordings:ro
     command: ["/service/.venv/bin/alembic", "upgrade", "head"]
     depends_on:
       mysql:

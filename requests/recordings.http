@@ -3,6 +3,8 @@
 @task_id = replace-after-upload
 
 ### Upload one audio file (wav/mp3/m4a/aac, <= 50 MiB)
+# First upload: 202. Repeating these bytes: 200 with the same initial task.
+# This body is an HTTP fixture for Mock ASR, not a playable audio recording.
 POST {{base_url}}/v1/recordings
 Content-Type: multipart/form-data; boundary=RecordingBoundary
 
@@ -14,6 +16,7 @@ mock audio bytes for API validation
 --RecordingBoundary--
 
 ### Task status
+# retry_waiting / next_attempt_at / last_error describe automatic backoff.
 GET {{base_url}}/v1/tasks/{{task_id}}
 
 ### Paginated recordings (newest first)

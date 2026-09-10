@@ -76,6 +76,7 @@ class Recording(Timestamps, Base):
     original_filename: Mapped[str] = mapped_column(String(255))
     storage_key: Mapped[str] = mapped_column(String(255), unique=True)
     size_bytes: Mapped[int] = mapped_column(BIGINT)
+    content_sha256: Mapped[str] = mapped_column(CHAR(64), unique=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DATETIME(fsp=6))
 
 

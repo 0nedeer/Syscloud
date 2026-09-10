@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Query, Request, Response, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
@@ -13,9 +13,20 @@ from app.services.uploads import create_recording
 router = APIRouter(prefix="/v1/recordings", tags=["recordings"])
 
 
-@router.post("", status_code=202, response_model=RecordingCreateResponse)
-async def upload_recording(request: Request, file: Annotated[UploadFile, File()]):
-    return await create_recording(request.app.state.database, request.app.state.storage, file)
+@router.post(
+    "",
+    status_code=202,
+    response_model=RecordingCreateResponse,
+    responses={200: {"model": RecordingCreateResponse, "description": "Duplicate audio"}},
+)
+async def upload_recording(
+    request: Request, response: Response, file: Annotated[UploadFile, File()]
+):
+    result, created = await create_recording(
+        request.app.state.database, request.app.state.storage, file
+    )
+    response.status_code = 202 if created else 200
+    return result
 
 
 @router.get("/{recording_id}", response_model=RecordingDetailResponse)
