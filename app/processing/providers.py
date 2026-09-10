@@ -1,0 +1,30 @@
+# Provider 层隔离具体 ASR/LLM 厂商协议，业务层只依赖统一接口。
+
+# 转写提供者及对外处理异常。当前 ASR 是模拟实现，不读取或识别音频内容。
+# 要接真实语音识别，需扩展此接口并从 Worker 传入音频数据/路径。
+
+import asyncio
+import random
+
+
+# 携带稳定错误码与可公开描述；不把供应商原始响应、密钥或本机路径保存为任务错误。
+class ProcessingError(Exception):
+    """Only stable codes and public messages may be persisted or logged."""
+
+    def __init__(self, code: str, message: str):
+        super().__init__(message)
+        self.code = code
+        self.message = message
+
+
+class MockASR:
+    # 默认等待 5～15 秒，约 20% 概率失败；成功返回固定会议文本供后续 LLM 摘要。
+    async def transcribe(self) -> str:
+        await asyncio.sleep(random.uniform(5, 15))
+        if random.random() < 0.2:
+            raise ProcessingError("asr_failed", "Transcription failed.")
+        return (
+            "今天讨论录音转写服务的发布计划。小李负责在周五前完成接口联调，"
+            "小王负责整理使用文档。团队决定先验证上传、转写和摘要完整流程，"
+            "再核查服务重启后的处理情况。下周一复盘结果并确定发布安排。"
+        )
