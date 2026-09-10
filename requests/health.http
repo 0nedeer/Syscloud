@@ -1,0 +1,13 @@
+@base_url = http://127.0.0.1:8000
+
+### Process is alive, independent of database readiness
+GET {{base_url}}/health/live
+
+### Database is reachable and schema revision matches this application
+GET {{base_url}}/health/ready
+
+### Unified 404 error and X-Request-ID
+GET {{base_url}}/not-found
+
+### Unified 405 error, with Allow header preserved
+POST {{base_url}}/health/live

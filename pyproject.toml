@@ -1,0 +1,32 @@
+[project]
+name = "recording-transcription-api"
+version = "0.1.0"
+description = "Asynchronous recording transcription and summary service"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "alembic>=1.16,<2",
+    "asyncmy>=0.2.10,<0.3",
+    "cryptography>=46,<50",
+    "fastapi>=0.115,<1",
+    "httpx>=0.28,<1",
+    "pydantic-settings>=2.8,<3",
+    "python-multipart>=0.0.20,<1",
+    "sqlalchemy[asyncio]>=2.0.40,<2.1",
+    "uvicorn>=0.34,<1",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.11,<1",
+]
+
+[tool.uv]
+package = false
+
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
