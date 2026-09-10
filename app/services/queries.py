@@ -20,6 +20,12 @@ def task_response(task: Task) -> TaskResponse:
         status=task.status,
         attempt_no=task.attempt_no,
         retry_of_task_id=task.retry_of_task_id,
+        auto_retry_count=task.auto_retry_count,
+        retry_waiting=task.next_attempt_at is not None,
+        next_attempt_at=task.next_attempt_at,
+        last_error=TaskError(code=task.last_error_code, message=task.last_error_message)
+        if task.last_error_code and task.last_error_message
+        else None,
         transcript=task.transcript,
         summary_result=task.summary_result if task.status == "done" else None,
         error=TaskError(

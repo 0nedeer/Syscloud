@@ -1,4 +1,4 @@
-"""Phase 2 schema. Later features will add their own forward migrations."""
+"""Persistent recording metadata and processing state."""
 
 import enum
 from datetime import UTC, datetime
@@ -88,8 +88,10 @@ class Task(Timestamps, Base):
         ),
         CheckConstraint("attempt_no >= 1", name="attempt_no"),
         CheckConstraint("recovery_count >= 0", name="recovery_count"),
+        CheckConstraint("auto_retry_count BETWEEN 0 AND 3", name="auto_retry_count"),
         Index("ix_tasks_status_created", "status", "created_at", "id"),
         Index("ix_tasks_status_lease", "status", "lease_expires_at"),
+        Index("ix_tasks_status_next_attempt", "status", "next_attempt_at"),
         {
             "mysql_engine": "InnoDB",
             "mysql_charset": "utf8mb4",
@@ -111,5 +113,9 @@ class Task(Timestamps, Base):
     lease_token: Mapped[str | None] = mapped_column(CHAR(36))
     lease_expires_at: Mapped[datetime | None] = mapped_column(DATETIME(fsp=6))
     recovery_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    auto_retry_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DATETIME(fsp=6))
+    last_error_code: Mapped[str | None] = mapped_column(String(64))
+    last_error_message: Mapped[str | None] = mapped_column(Text)
     started_at: Mapped[datetime | None] = mapped_column(DATETIME(fsp=6))
     finished_at: Mapped[datetime | None] = mapped_column(DATETIME(fsp=6))

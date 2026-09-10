@@ -20,7 +20,9 @@ class Worker:
     def __init__(self, database, storage, settings, llm, asr=None):
         self.database, self.storage, self.settings = database, storage, settings
         self.llm, self.asr = llm, asr or MockASR()
-        self.queue = TaskQueue(database, settings.worker_lease_seconds)
+        self.queue = TaskQueue(
+            database, settings.worker_lease_seconds, settings.worker_retry_base_seconds
+        )
         self.active: set[asyncio.Task] = set()
 
     async def process(self, lease):
@@ -110,7 +112,7 @@ class Worker:
 
     async def _fail(self, lease, code, message):
         try:
-            await self.queue.fail(lease, code, message)
+            await self.queue.fail(lease, code, message, retryable=True)
         except Exception:
             logger.error(
                 "task_failure_write_interrupted",

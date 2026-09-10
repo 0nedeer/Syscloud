@@ -45,11 +45,16 @@ class TaskResponse(ApiModel):
     transcript: str | None = None
     summary_result: SummaryResult | None = None
     error: TaskError | None = None
+    auto_retry_count: int = Field(default=0, ge=0, le=3)
+    max_auto_retries: int = 3
+    retry_waiting: bool = False
+    next_attempt_at: datetime | None = None
+    last_error: TaskError | None = None
     created_at: datetime
     started_at: datetime | None = None
     finished_at: datetime | None = None
 
-    @field_serializer("created_at", "started_at", "finished_at")
+    @field_serializer("created_at", "started_at", "finished_at", "next_attempt_at")
     def serialize_datetime(self, value: datetime | None) -> str | None:
         return iso_utc(value)
 

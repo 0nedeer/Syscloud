@@ -22,6 +22,7 @@ class WorkerSettings(Settings):
     worker_heartbeat_seconds: float = Field(default=10, ge=0.1, le=300)
     worker_shutdown_seconds: float = Field(default=10, ge=0, le=60)
     worker_cleanup_seconds: float = Field(default=10, ge=0.1, le=300)
+    worker_retry_base_seconds: float = Field(default=2, gt=0, le=60)
 
     @field_validator("llm_reasoning_effort", mode="before")
     @classmethod

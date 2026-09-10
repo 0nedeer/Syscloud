@@ -16,6 +16,8 @@ FIELDS = (
     "new_status",
     "duration_ms",
     "error_code",
+    "auto_retry_count",
+    "next_attempt_at",
     "exception_type",
     "method",
     "route",
