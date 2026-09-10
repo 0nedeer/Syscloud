@@ -1,0 +1,29 @@
+@base_url = http://127.0.0.1:8000
+@recording_id = replace-after-upload
+@task_id = replace-after-upload
+
+### Upload one audio file (wav/mp3/m4a/aac, <= 50 MiB)
+POST {{base_url}}/v1/recordings
+Content-Type: multipart/form-data; boundary=RecordingBoundary
+
+--RecordingBoundary
+Content-Disposition: form-data; name="file"; filename="meeting.wav"
+Content-Type: audio/wav
+
+mock audio bytes for API validation
+--RecordingBoundary--
+
+### Task status
+GET {{base_url}}/v1/tasks/{{task_id}}
+
+### Paginated recordings (newest first)
+GET {{base_url}}/v1/recordings?page=1&page_size=20
+
+### Recording detail
+GET {{base_url}}/v1/recordings/{{recording_id}}
+
+### Retry only after the task is failed
+POST {{base_url}}/v1/tasks/{{task_id}}/retry
+
+### Delete recording and associated tasks/file
+DELETE {{base_url}}/v1/recordings/{{recording_id}}
