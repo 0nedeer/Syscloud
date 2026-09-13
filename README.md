@@ -36,28 +36,56 @@ scripts/                 # 通用启动与只读存储审计工具
 docs/                    # 需求、设计和使用说明
 ```
 
-## 使用
+## 使用与启动
 
-复制 `.env.example` 为 `.env`，设置数据库密码、LLM 地址、模型和密钥；已有配置应保留。真实配置只放在忽略的环境文件或进程环境中。
+### 方式一：Docker 一键启动（推荐）
 
-安装 Docker 和 Compose 后执行：
+适用于 Windows、macOS 和 Linux。先安装并启动 Docker Desktop，然后在项目根目录执行：
 
-```text
-docker compose config --quiet
-docker compose up --build -d
+```powershell
+.\start.ps1
 ```
 
-使用独立 `.env.docker` 时，每条 Compose 命令加 `--env-file .env.docker`。Compose 启动 MySQL、执行迁移，再启动 API 和 Worker。访问 http://127.0.0.1:8000/docs 调用接口。
-
-已有 MySQL 的本地运行方式：
+首次执行会自动复制 `.env.example` 为 `.env` 并停止，避免使用占位配置。编辑 `.env`，至少填写以下值后再次执行脚本：
 
 ```text
+MYSQL_PASSWORD=数据库用户密码
+MYSQL_ROOT_PASSWORD=数据库 root 密码
+LLM_BASE_URL=https://实际模型服务地址/v1
+LLM_MODEL=实际可用的模型名
+LLM_API_KEY=实际模型密钥
+```
+
+脚本随后会检查 Docker、校验 Compose 配置、构建镜像，并按顺序启动 MySQL、数据库迁移、API 和 Worker。启动成功后打开 <http://127.0.0.1:8000/docs>。
+
+常用命令：
+
+```powershell
+.\start.ps1 -Rebuild  # 强制重新构建镜像
+.\start.ps1 -Logs     # 启动后持续查看 API/Worker 日志
+docker compose ps     # 查看服务状态
+docker compose down   # 停止服务（保留数据卷）
+```
+
+如果使用其他环境文件，可将命令中的环境文件显式传给 Compose，例如 `docker compose --env-file .env.docker up --build -d`。不要执行 `down -v`，否则会删除数据库和录音卷。
+
+### 方式二：本地 Python 分进程启动
+
+适用于已有 MySQL、Python 3.12 和 uv 的开发环境。复制 `.env.example` 为 `.env`，将 `DATABASE_URL` 改为本地 MySQL，并设置 LLM 配置，然后依次执行：
+
+```powershell
 uv sync --frozen
 uv run --frozen alembic upgrade head
 uv run --frozen uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000 --no-access-log
 ```
 
-另开终端执行 `uv run --frozen python -m app.worker`。两个进程须使用同一数据库和音频目录。具体配置见 [运行与开发](docs/development.md)。
+保持 API 进程运行，再打开第二个终端执行：
+
+```powershell
+uv run --frozen python -m app.worker
+```
+
+API 和 Worker 必须使用相同的数据库和 `UPLOAD_DIR`。Windows 也可以分别运行 `scripts/start-local.ps1` 和 `scripts/start-worker.ps1`。完整参数说明见 [运行与开发](docs/development.md)。
 
 ## 处理流程
 
@@ -85,7 +113,9 @@ MySQL 同时作为业务存储和持久化队列，减少运行组件。外部�
 
 文件与数据库无法原子提交，极端中断可能留下孤立文件，可使用只读 [存储审计工具](scripts/audit-storage.py) 核查。外部 LLM 属于至少一次调用，重启可能重复请求。并发限制按进程计算，Compose 默认启动一个 Worker。
 
-当前无鉴权和前端；Mock 转写不代表录音真实内容。迁移前须备份数据库和音频，哈希迁移遇到重复或缺失文件会停止。接口就绪只表示 API 与数据库可用，完整处理还依赖 Worker 和 LLM 服务。
+## 已知问题与未完成项
+
+当前无鉴权、前端和公网部署方案；Mock 转写不代表录音真实内容。LLM 调用采用至少一次语义，进程异常时可能重复请求。文件系统和数据库不能原子提交，极端中断可能留下孤立文件，需要运行存储审计工具处理。并发上限按 Worker 进程计算，多个 Worker 进程不保证全局 3 并发。迁移前须备份数据库和音频，哈希迁移遇到重复或缺失文件会停止。接口就绪只表示 API 与数据库可用，完整处理还依赖 Worker 和可用的 LLM 服务。
 
 ## 阅读入口
 
@@ -96,6 +126,8 @@ MySQL 同时作为业务存储和持久化队列，减少运行组件。外部�
 | [运行与开发](docs/development.md) | 配置、启动、迁移和手动核查 |
 | [源码指南](docs/code-guide.md) | 模块职责和阅读顺序 |
 | [HTTP 调试文件](requests/recordings.http) | 六个业务接口的调用示例 |
+| [健康检查调试](requests/health.http) | 存活、就绪、404 和 405 示例 |
+| [Postman 集合](requests/recording-transcription.postman_collection.json) | 可导入 Postman 的完整接口集合 |
 | [贡献说明](CONTRIBUTING.md) | 代码规范、提交检查和仓库内容约定 |
 
 当前尚未选择开源许可证，后续以仓库明确发布的许可证为准。
