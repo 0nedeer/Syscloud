@@ -41,7 +41,47 @@ MySQL 与音频分别保存在命名卷中。普通 `docker compose down` 保留
 
 ## 本地 Python
 
-先创建专用数据库与业务用户，授予该库运行和迁移所需权限，字符集 utf8mb4。将连接串写入 `.env`，不要在命令行传入密码。
+### 准备本地 MySQL
+
+本地 Python/uv 模式要求 MySQL 8.0.16+ 在本机运行，并准备独立的业务库和用户。Windows 可先检查并启动服务：
+
+```powershell
+Get-Service *mysql*
+Start-Service MySQL80
+Test-NetConnection 127.0.0.1 -Port 3306
+```
+
+使用 root 登录 MySQL 后创建数据库和业务用户（请替换密码）：
+
+```powershell
+mysql -u root -p
+```
+
+```sql
+CREATE DATABASE recordings CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'recordings'@'127.0.0.1' IDENTIFIED BY 'change-me-local';
+GRANT ALL PRIVILEGES ON recordings.* TO 'recordings'@'127.0.0.1';
+FLUSH PRIVILEGES;
+```
+
+验证业务用户：
+
+```powershell
+mysql -h 127.0.0.1 -P 3306 -u recordings -p recordings -e "SELECT DATABASE();"
+```
+
+复制 `.env.example` 为 `.env`，确认 `DATABASE_URL` 与上面的账号密码一致：
+
+```env
+DATABASE_URL=mysql+asyncmy://recordings:change-me-local@127.0.0.1:3306/recordings?charset=utf8mb4
+UPLOAD_DIR=./data/recordings
+```
+
+密码中的 `@`、`#`、`/`、`:` 等字符必须先 URL 编码。
+
+### 启动 API 与 Worker
+
+不要在命令行直接传数据库密码。
 
 ```text
 uv sync --frozen
