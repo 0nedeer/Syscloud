@@ -4,7 +4,11 @@
 
 服务支持录音与任务查询、分页、失败任务手动重试和可恢复删除，并提供自动重试、重启恢复、SHA-256 去重及每个 Worker 最多 3 个任务并发。
 
-## 接口
+本项目对应笔试题中的“录音转写服务”要求。必做功能为上传、异步转写与摘要、任务查询、分页、重试和删除；自动重试、重启恢复、上传幂等和并发控制作为扩展能力实现。项目不包含注册登录、鉴权、前端和高并发性能优化。
+
+## 功能与接口契约
+
+### 接口列表
 
 | 方法与路径 | 功能 |
 | --- | --- |
@@ -16,6 +20,8 @@
 | DELETE /v1/recordings/{recording_id} | 删除音频与关联数据 |
 
 上传字段为 multipart `file`，允许 wav/mp3/m4a/aac，文件非空且不超过 50 MiB。完整接口与错误契约见 [设计文档](docs/design.md)，调用示例见 [HTTP 文件](requests/recordings.http) 或 [Postman 集合](requests/recording-transcription.postman_collection.json)。
+
+上传接口在文件落盘和数据库事务提交后立即返回，不等待转写。新任务返回 `202` 和 `pending`；相同文件的重复上传返回 `200` 并复用已有录音和初始任务。统一错误结构为 `{"error":{"code":"...","message":"...","request_id":"..."}}`，参数、资源不存在、状态冲突、文件过大和基础设施故障分别使用 `400`、`404`、`409`、`413` 和 `503`。
 
 ## 项目结构
 
@@ -87,7 +93,7 @@ uv run --frozen python -m app.worker
 
 API 和 Worker 必须使用相同的数据库和 `UPLOAD_DIR`。Windows 也可以分别运行 `scripts/start-local.ps1` 和 `scripts/start-worker.ps1`。完整参数说明见 [运行与开发](docs/development.md)。
 
-## 处理流程
+## 架构说明与处理流程
 
 ```mermaid
 flowchart LR
@@ -105,9 +111,20 @@ flowchart LR
 
 失败阶段共享最多 3 次自动重试，默认退避 2/4/8 秒，预算耗尽进入 `failed`；手动重试创建新任务。排队任务保存在数据库中，处理中任务在租约到期后恢复，摘要阶段复用已有转写。
 
-## 数据与取舍
+Worker 每个进程最多同时处理 3 个任务；任务通过 MySQL 行锁、租约令牌和到期时间领取，旧执行无法覆盖新执行结果。进程重启后，排队任务继续领取，过期租约恢复到原阶段。
+
+## 表结构设计说明
 
 `recordings` 保存文件元数据、内容哈希与删除标记；`tasks` 保存处理状态、结果、错误、重试关系及租约。迁移顺序为 `0001_recordings_tasks → 0002_task_auto_retries → 0003_recording_hash`，字段与约束见 [设计](docs/design.md)。
+
+| 表 | 关键字段 | 约束与用途 |
+| --- | --- | --- |
+| `recordings` | `id`、`original_filename`、`storage_key`、`size_bytes`、`content_sha256` | UUID 主键；存储键和内容哈希唯一；文件大小有上限；`deleted_at` 支持软删除和清理补偿 |
+| `tasks` | `id`、`recording_id`、`attempt_no`、`status`、`transcript`、`summary_result`、`error_code`、`error_message`、`lease_token`、`lease_expires_at`、`auto_retry_count`、`next_attempt_at` | 关联录音并记录处理状态、转写、摘要和脱敏错误；`recording_id + attempt_no` 唯一；租约字段支持并发领取和超时恢复；录音删除时级联删除任务 |
+
+所有表结构由 Alembic 迁移维护，不依赖手工执行建表 SQL。当前迁移头为 `0003_recording_hash`。
+
+## 技术取舍
 
 MySQL 同时作为业务存储和持久化队列，减少运行组件。外部调用在事务外执行；短事务、行锁及租约令牌防止旧执行覆盖新结果。删除先标记再清理文件及关联数据，中断后由 Worker 补偿。
 
@@ -116,6 +133,8 @@ MySQL 同时作为业务存储和持久化队列，减少运行组件。外部�
 ## 已知问题与未完成项
 
 当前无鉴权、前端和公网部署方案；Mock 转写不代表录音真实内容。LLM 调用采用至少一次语义，进程异常时可能重复请求。文件系统和数据库不能原子提交，极端中断可能留下孤立文件，需要运行存储审计工具处理。并发上限按 Worker 进程计算，多个 Worker 进程不保证全局 3 并发。迁移前须备份数据库和音频，哈希迁移遇到重复或缺失文件会停止。接口就绪只表示 API 与数据库可用，完整处理还依赖 Worker 和可用的 LLM 服务。
+
+未实现的可选项包括 LLM 流式摘要接口、公网部署和完整自动化测试。并发控制、自动重试和重启恢复需要按 [开发说明](docs/development.md) 进行人工核查。
 
 ## 阅读入口
 
