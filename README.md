@@ -64,6 +64,8 @@ LLM_API_KEY=实际模型密钥
 
 脚本随后会检查 Docker、校验 Compose 配置、构建镜像，并按顺序启动 MySQL、数据库迁移、API 和 Worker。启动成功后打开 <http://127.0.0.1:8000/docs>。
 
+正常情况下只需执行 `.\start.ps1`；不需要另外先执行 `docker compose up --build -d`。如果需要绕过启动脚本，也可以直接使用后者作为等价的手动启动命令。
+
 常用命令：
 
 ```powershell

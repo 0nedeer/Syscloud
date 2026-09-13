@@ -66,7 +66,13 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $composeArgs = @('up', '-d')
-if ($Rebuild -or -not (docker image inspect recordings-api:local 2>$null)) {
+# 列表为空表示尚未构建镜像，避免 inspect 的错误输出中断 PowerShell 5.1。
+$imageIds = @(docker image ls --quiet recordings-api:local)
+if ($LASTEXITCODE -ne 0) {
+    Fail '无法查询本地镜像，请检查 Docker Desktop/daemon 状态。'
+}
+$imageExists = ($imageIds.Count -gt 0)
+if ($Rebuild -or -not $imageExists) {
     $composeArgs += '--build'
 }
 
