@@ -1,7 +1,7 @@
-"""Public response models shared by recording and task endpoints."""
+"""HTTP 响应模型与 LLM 摘要的严格数据契约。"""
 
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, overload
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_serializer
@@ -9,6 +9,15 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_seri
 from app.models import TaskStatus
 
 
+@overload
+def iso_utc(value: datetime) -> str: ...
+
+
+@overload
+def iso_utc(value: None) -> None: ...
+
+
+# 数据库返回的无时区 datetime 按 UTC 解释，统一输出带 Z 的 ISO 8601 字符串。
 def iso_utc(value: datetime | None) -> str | None:
     if value is None:
         return None
@@ -17,17 +26,31 @@ def iso_utc(value: datetime | None) -> str | None:
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
+# 允许从对象属性读值，并拒绝未声明字段，尽早暴露响应组装错误。
 class ApiModel(BaseModel):
     model_config = ConfigDict(from_attributes=True, extra="forbid")
 
 
+# 对外错误只含稳定 code 与可读 message，不传供应商原始报错。
 class TaskError(ApiModel):
     code: str
     message: str
 
 
+class ApiErrorDetail(TaskError):
+    """HTTP 错误携带请求 ID，便于关联脱敏日志。"""
+
+    request_id: str | None = None
+
+
+class ErrorResponse(ApiModel):
+    error: ApiErrorDetail
+
+
+# 三个字段严格校验：非空摘要字符串、要点字符串列表、待办字符串列表。
+# strict=True 防止数字等被悄悄转成字符串；extra=forbid 拒绝模型添加额外字段。
 class SummaryResult(ApiModel):
-    """The same strict contract is used for API output and future LLM validation."""
+    """API 输出与模型结果共用同一份严格摘要契约。"""
 
     model_config = ConfigDict(strict=True, extra="forbid")
 
@@ -36,6 +59,7 @@ class SummaryResult(ApiModel):
     todos: list[str]
 
 
+# 租约令牌、磁盘路径等内部调度细节不进入此响应。
 class TaskResponse(ApiModel):
     task_id: UUID
     recording_id: UUID
@@ -62,12 +86,12 @@ class TaskResponse(ApiModel):
 class RecordingCreateResponse(ApiModel):
     recording_id: UUID
     task_id: UUID
-    status: str = "pending"
+    status: TaskStatus = TaskStatus.PENDING
 
 
 class RecordingListTask(ApiModel):
     task_id: UUID
-    status: str
+    status: TaskStatus
     attempt_no: int
 
 
@@ -80,7 +104,7 @@ class RecordingListItem(ApiModel):
 
     @field_serializer("created_at")
     def serialize_created_at(self, value: datetime) -> str:
-        return iso_utc(value)  # type: ignore[return-value]
+        return iso_utc(value)
 
 
 class RecordingListResponse(ApiModel):
@@ -101,11 +125,11 @@ class RecordingDetailResponse(ApiModel):
 
     @field_serializer("created_at")
     def serialize_created_at(self, value: datetime) -> str:
-        return iso_utc(value)  # type: ignore[return-value]
+        return iso_utc(value)
 
 
 class RetryResponse(ApiModel):
     recording_id: UUID
     task_id: UUID
-    status: str
+    status: TaskStatus
     attempt_no: int

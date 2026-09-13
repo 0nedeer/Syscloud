@@ -1,7 +1,4 @@
-# Provider 层隔离具体 ASR/LLM 厂商协议，业务层只依赖统一接口。
-
-# 转写提供者及对外处理异常。当前 ASR 是模拟实现，不读取或识别音频内容。
-# 要接真实语音识别，需扩展此接口并从 Worker 传入音频数据/路径。
+"""Mock 转写提供者及可公开的处理错误。"""
 
 import asyncio
 import random
@@ -11,7 +8,7 @@ import random
 class ProcessingError(Exception):
     """Only stable codes and public messages may be persisted or logged."""
 
-    def __init__(self, code: str, message: str):
+    def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
         self.message = message

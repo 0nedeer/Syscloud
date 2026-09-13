@@ -8,4 +8,8 @@
 *.ini text eol=lf
 *.mako text eol=lf
 *.sh text eol=lf
+*.json text eol=lf
+*.http text eol=lf
+*.ps1 text eol=crlf
+.editorconfig text eol=lf
 Dockerfile text eol=lf

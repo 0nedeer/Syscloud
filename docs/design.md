@@ -63,6 +63,8 @@ ID 使用应用生成的 UUID，存为 CHAR(36)；时间为 UTC DATETIME(6)，�
 
 统一错误形如 `{"error":{"code":"...","message":"...","request_id":"..."}}`。参数错误 400，资源不存在 404，状态或内容清理冲突 409，文件超限 413，基础设施不可用 503，未预期错误 500。日志通过 request_id、recording_id、task_id 串联，不输出密钥、连接串、转写、摘要或供应商原始响应。
 
+OpenAPI 使用 `ErrorResponse` 描述统一错误；各响应的 status 共用 `TaskStatus` 枚举。框架参数校验统一返回 400，接口文档不声明默认的 422 响应。request_id 同时出现在错误对象和 X-Request-ID 响应头中；数据库驱动未提供错误号时返回脱敏 500。
+
 ## 模型调用与边界
 
 LLM 可选择 Responses 或 Chat Completions 协议，使用完整响应。显式配置地址、模型、密钥及可选推理强度；远程地址要求 HTTPS，代理单独配置。请求设置连接超时、整体期限及响应字节上限，错误转换为稳定脱敏代码。

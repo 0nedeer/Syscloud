@@ -1,0 +1,200 @@
+{
+  "info": {
+    "_postman_id": "b3b4e58a-8b48-4b59-91c9-2e5ce4c1c001",
+    "name": "录音转写服务 API",
+    "description": "录音上传、异步转写、摘要、重试与删除调试集合。上传后手动填写 recording_id 与 task_id。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000"
+    },
+    {
+      "key": "audio_file",
+      "value": ""
+    },
+    {
+      "key": "recording_id",
+      "value": ""
+    },
+    {
+      "key": "task_id",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "健康检查",
+      "item": [
+        {
+          "name": "存活检查",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health/live",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health",
+                "live"
+              ]
+            }
+          }
+        },
+        {
+          "name": "就绪检查",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health/ready",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health",
+                "ready"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "录音与任务流程",
+      "item": [
+        {
+          "name": "上传录音",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "{{audio_file}}"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/recordings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "recordings"
+              ]
+            },
+            "description": "在 Collection variables 中设置 audio_file 为本地 WAV/MP3/M4A/AAC 文件路径。"
+          }
+        },
+        {
+          "name": "查询任务",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/tasks/{{task_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "tasks",
+                "{{task_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "录音详情",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/recordings/{{recording_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "recordings",
+                "{{recording_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "录音列表",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/recordings?page=1&page_size=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "recordings"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "page_size",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "手动重试任务",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/tasks/{{task_id}}/retry",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "tasks",
+                "{{task_id}}",
+                "retry"
+              ]
+            }
+          }
+        },
+        {
+          "name": "删除录音",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/recordings/{{recording_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "recordings",
+                "{{recording_id}}"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

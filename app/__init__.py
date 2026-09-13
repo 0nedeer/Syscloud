@@ -1,1 +1,1 @@
-"""Recording transcription service."""
+"""录音转写服务。导入包不会启动进程或建立连接。"""

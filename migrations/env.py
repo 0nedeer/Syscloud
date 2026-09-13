@@ -1,3 +1,5 @@
+# Alembic 执行入口：读取当前模型元数据和 .env 连接串，配置迁移上下文。
+
 """Read credentials from Settings instead of storing them in alembic.ini."""
 
 import asyncio
@@ -10,12 +12,14 @@ from app.config import Settings
 from app.models import Base
 
 
+# 在同步连接适配层配置元数据并执行迁移；compare_type 检查字段类型差异。
 def configure_and_run(connection):
     context.configure(connection=connection, target_metadata=Base.metadata, compare_type=True)
     with context.begin_transaction():
         context.run_migrations()
 
 
+# 创建短生命周期连接运行迁移，结束后释放；应用启动不会隐式调用此函数。
 async def run_online():
     settings = Settings()
     engine = create_async_engine(

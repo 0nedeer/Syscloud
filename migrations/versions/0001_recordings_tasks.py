@@ -1,3 +1,6 @@
+# 第一版表结构：建立录音、任务、外键和初始状态/租约字段。
+# 历史迁移描述当时的 schema；后续字段通过追加迁移引入，不以当前模型重写旧版本。
+
 """Create recording metadata and durable processing tasks.
 
 Revision ID: 0001_recordings_tasks
@@ -14,6 +17,7 @@ branch_labels = None
 depends_on = None
 
 
+# 按父表 recordings→子表 tasks 的顺序创建，建立文件大小、任务状态及重试来源约束。
 def upgrade() -> None:
     op.create_table(
         "recordings",

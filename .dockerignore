@@ -6,5 +6,7 @@
 !app/**
 !migrations/
 !migrations/**
+!scripts/
+!scripts/audit-storage.py
 **/__pycache__/
 **/*.pyc

@@ -1,3 +1,5 @@
+"""先提交删除意图，再清理文件与关联任务，支持中断补偿。"""
+
 import logging
 from datetime import UTC, datetime
 
@@ -12,6 +14,8 @@ from app.storage import LocalStorage, StorageError
 logger = logging.getLogger("app.deletions")
 
 
+# 第一次事务写 deleted_at，让查询、重试和 Worker 写入立即视该录音为不可用。
+# 文件删除在事务外执行；失败返回 503 并保留标记，后续请求或 Worker 可继续清理。
 async def delete_recording(session: AsyncSession, storage: LocalStorage, recording_id: str) -> None:
     async with session.begin():
         recording = await session.scalar(

@@ -2,11 +2,12 @@
 
 import asyncio
 import json
+from typing import Any
 
 import httpx
 from pydantic import ValidationError
 
-from app.processing.config import WorkerSettings
+from app.config import WorkerSettings
 from app.processing.providers import ProcessingError
 from app.schemas import SummaryResult
 
@@ -19,7 +20,7 @@ INSTRUCTIONS = (
 
 
 class LLMProvider:
-    def __init__(self, settings: WorkerSettings):
+    def __init__(self, settings: WorkerSettings) -> None:
         self.settings = settings
         key = settings.llm_api_key.get_secret_value()
         self.client = httpx.AsyncClient(
@@ -32,12 +33,12 @@ class LLMProvider:
             proxy=settings.llm_proxy_url.get_secret_value() or None,
         )
 
-    async def close(self):
+    async def close(self) -> None:
         await self.client.aclose()
 
-    def _request(self, transcript):
+    def _request(self, transcript: str) -> tuple[str, dict[str, Any]]:
         settings = self.settings
-        payload = {"model": settings.llm_model, "stream": False}
+        payload: dict[str, Any] = {"model": settings.llm_model, "stream": False}
         if settings.llm_api_style == "responses":
             path = "/responses"
             payload.update(
@@ -62,18 +63,12 @@ class LLMProvider:
         try:
             # 整体期限约束连接和响应读取；分块读取 HTTP 正文只是为了限制内存占用。
             async with asyncio.timeout(self.settings.llm_timeout_seconds):
-                async with self.client.stream(
-                    "POST", self.settings.llm_base_url + path, json=payload
-                ) as response:
-                    if not response.is_success:
-                        raise ProcessingError("llm_http_error", "Summary service rejected request.")
-                    body = bytearray()
-                    async for chunk in response.aiter_bytes(chunk_size=8192):
-                        if len(body) + len(chunk) > self.settings.llm_max_response_bytes:
-                            raise ProcessingError(
-                                "llm_output_too_large", "Summary response too large."
-                            )
-                        body.extend(chunk)
+                response = await self.client.post(self.settings.llm_base_url + path, json=payload)
+                if not response.is_success:
+                    raise ProcessingError("llm_http_error", "Summary service rejected request.")
+                body = response.content
+                if len(body) > self.settings.llm_max_response_bytes:
+                    raise ProcessingError("llm_output_too_large", "Summary response too large.")
                 try:
                     envelope = json.loads(body)
                 except (ValueError, UnicodeError, RecursionError):
@@ -94,7 +89,7 @@ class LLMProvider:
                 "llm_network_error", "Summary service connection failed."
             ) from None
 
-    def _extract_text(self, envelope) -> str:
+    def _extract_text(self, envelope: Any) -> str:
         try:
             if self.settings.llm_api_style == "responses":
                 if envelope["status"] != "completed":

@@ -1,3 +1,5 @@
+"""为失败任务创建幂等后继，保留原任务的处理历史。"""
+
 import logging
 
 from sqlalchemy import select
@@ -10,6 +12,8 @@ from app.schemas import RetryResponse
 logger = logging.getLogger("app.retries")
 
 
+# 按录音→任务的统一顺序加行锁，再检查来源状态和既有后继。
+# 重复请求返回已创建的直接后继，数据库唯一约束进一步限制同一来源只能重试出一个任务。
 async def retry_task(session: AsyncSession, task_id: str) -> tuple[RetryResponse, bool]:
     async with session.begin():
         recording_id = await session.scalar(select(Task.recording_id).where(Task.id == task_id))
@@ -31,6 +35,8 @@ async def retry_task(session: AsyncSession, task_id: str) -> tuple[RetryResponse
             select(Task).where(Task.retry_of_task_id == task_id).with_for_update()
         )
         created = successor is None
+        # 新任务使用独立 ID，attempt_no 加一，自动重试次数从默认 0 开始。
+        # 这里不复制旧转写，因此手动重试会重新走转写和摘要流程。
         if created:
             successor = Task(
                 recording_id=recording_id,

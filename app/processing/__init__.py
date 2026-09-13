@@ -1,1 +1,1 @@
-"""Durable recording processing, independent of the HTTP process."""
+"""任务队列和外部处理器，独立于 HTTP 请求执行。"""

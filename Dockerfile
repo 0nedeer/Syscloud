@@ -12,6 +12,7 @@ RUN uv sync --frozen --no-dev
 COPY app ./app
 COPY migrations ./migrations
 COPY alembic.ini ./
+COPY scripts/audit-storage.py ./scripts/
 RUN useradd --uid 10001 --create-home service \
     && mkdir -p /service/data/recordings \
     && chown -R service:service /service/data

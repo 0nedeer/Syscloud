@@ -18,6 +18,8 @@ dist/
 data/
 tmp/
 *.log
+*.bundle
+*.dump
 
 # Editors and operating systems
 .idea/
@@ -25,5 +27,5 @@ tmp/
 .DS_Store
 Thumbs.db
 
-# Local collaboration reports and machine-specific notes
+# Private workspace notes
 .local/

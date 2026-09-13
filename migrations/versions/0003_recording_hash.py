@@ -1,3 +1,6 @@
+# 第三版迁移：校验已有音频并回填 SHA-256，最后建立上传内容唯一约束。
+# 必须停写并挂载原音频目录；缺失、大小不符或重复时终止，不擅自合并既有录音。
+
 """Backfill verified audio hashes before enforcing upload deduplication.
 
 Stop API and Worker first. Re-running after interrupted MySQL DDL is supported.
@@ -17,6 +20,8 @@ branch_labels = None
 depends_on = None
 
 
+# 先完整核验文件，再执行 DDL；根据已存在的列/索引继续执行，以应对迁移中途断开。
+# 哈希来自实际文件，不能用占位值；因此本迁移不支持纯离线 SQL 生成。
 def upgrade():
     context = op.get_context()
     if context.as_sql:
@@ -66,6 +71,7 @@ def upgrade():
     )
 
 
+# 删除哈希列和唯一索引，录音及音频仍保留，但不再有数据库级内容去重。
 def downgrade():
     op.execute(
         sa.text(

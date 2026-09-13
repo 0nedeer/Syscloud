@@ -1,4 +1,4 @@
-"""Persistent recording metadata and processing state."""
+"""录音元数据、处理任务及数据库约束。"""
 
 import enum
 from datetime import UTC, datetime
@@ -19,18 +19,19 @@ from sqlalchemy.dialects.mysql import BIGINT, CHAR, DATETIME, JSON, LONGTEXT
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
+# Python 侧生成 UTC 时间后去掉时区标记，以适配 MySQL DATETIME；接口输出时再补 Z。
 def utc_now() -> datetime:
-    # MySQL DATETIME is timezone-naive; all application and server sessions use UTC.
     return datetime.now(UTC).replace(tzinfo=None)
 
 
+# UUID 在应用侧生成，适合独立 API/Worker 写入；字符串形式存为 CHAR(36)。
 def new_id() -> str:
     return str(uuid4())
 
 
+# 统一元数据和约束命名，使 ORM 与 Alembic 可稳定对照。
+# eager_defaults 在 flush 时取回数据库默认值，避免之后读取属性触发隐式异步 I/O。
 class Base(DeclarativeBase):
-    # MySQL lacks INSERT ... RETURNING. Fetch server defaults inside async flush,
-    # rather than triggering implicit I/O when serializing a newly inserted object.
     __mapper_args__ = {"eager_defaults": True}
     metadata = MetaData(
         naming_convention={
@@ -43,6 +44,7 @@ class Base(DeclarativeBase):
     )
 
 
+# 五个公开状态；failed/done 是旧任务终态，手动重试通过新任务表达。
 class TaskStatus(enum.StrEnum):
     PENDING = "pending"
     TRANSCRIBING = "transcribing"
@@ -51,6 +53,8 @@ class TaskStatus(enum.StrEnum):
     FAILED = "failed"
 
 
+# 共享时间字段：数据库默认值负责插入时间，ORM onupdate 负责常规更新。
+# 直接写原生 SQL 时需自行维护 updated_at。
 class Timestamps:
     created_at: Mapped[datetime] = mapped_column(
         DATETIME(fsp=6), server_default=text("CURRENT_TIMESTAMP(6)")
@@ -60,6 +64,8 @@ class Timestamps:
     )
 
 
+# 录音元数据及文件引用；content_sha256 唯一约束实现按内容去重。
+# deleted_at 是删除意图，尚未硬删除时查询和领取也必须过滤它。
 class Recording(Timestamps, Base):
     __tablename__ = "recordings"
     __table_args__ = (
@@ -80,6 +86,8 @@ class Recording(Timestamps, Base):
     deleted_at: Mapped[datetime | None] = mapped_column(DATETIME(fsp=6))
 
 
+# 一次手动处理尝试的持久化状态，包含结果、错误、租约及自动重试预算。
+# attempt_no 是手动尝试序号，auto_retry_count 是本任务内部自动重试次数。
 class Task(Timestamps, Base):
     __tablename__ = "tasks"
     __table_args__ = (
@@ -105,12 +113,15 @@ class Task(Timestamps, Base):
         CHAR(36), ForeignKey("recordings.id", ondelete="CASCADE")
     )
     attempt_no: Mapped[int] = mapped_column(Integer, server_default=text("1"))
+    # 来源失败任务只能产生一个直接后继；关系由服务事务保证，不设自引用外键。
     retry_of_task_id: Mapped[str | None] = mapped_column(CHAR(36), unique=True)
     status: Mapped[str] = mapped_column(String(20), server_default=text("'pending'"))
     transcript: Mapped[str | None] = mapped_column(LONGTEXT)
+    # None 存 SQL NULL，避免与 JSON 文档中的 null 混淆；仅 done 时向用户发布。
     summary_result: Mapped[dict | None] = mapped_column(JSON(none_as_null=True))
     error_code: Mapped[str | None] = mapped_column(String(64))
     error_message: Mapped[str | None] = mapped_column(Text)
+    # 令牌与到期时间共同表示短期所有权；新领取换令牌，旧执行不能覆盖新结果。
     lease_token: Mapped[str | None] = mapped_column(CHAR(36))
     lease_expires_at: Mapped[datetime | None] = mapped_column(DATETIME(fsp=6))
     recovery_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
