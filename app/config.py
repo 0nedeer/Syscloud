@@ -43,7 +43,7 @@ class Settings(BaseSettings):
             valid = False
         if not valid:
             raise ValueError("DATABASE_URL must name a MySQL database using mysql+asyncmy")
-        # The application always establishes utf8mb4 and UTC sessions.
+    # 应用始终建立 utf8mb4 字符集和 UTC 会话。
         if url.query and url.query != {"charset": "utf8mb4"}:
             raise ValueError("Only charset=utf8mb4 is supported in DATABASE_URL query options")
         return value

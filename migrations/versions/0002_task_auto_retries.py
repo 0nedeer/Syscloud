@@ -14,7 +14,7 @@ depends_on = None
 
 # 用一条 ALTER TABLE 添加字段、约束及调度索引，利用 MySQL 8 的单条 DDL 原子性。
 def upgrade():
-    # One atomic MySQL 8 ALTER: a failed DDL does not leave partially added columns.
+    # 使用一条 MySQL 8 原子 ALTER；DDL 失败不会留下部分新增列。
     op.execute(
         sa.text("""
         ALTER TABLE tasks

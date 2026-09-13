@@ -46,7 +46,7 @@ class JsonFormatter(logging.Formatter):
             "task_id": getattr(record, "task_id", None),
         }
         data.update({key: getattr(record, key) for key in FIELDS if hasattr(record, key)})
-        # Do not serialize exception messages/tracebacks; driver errors can contain credentials/SQL.
+        # 不序列化异常消息和堆栈；驱动错误可能包含凭据或 SQL。
         if record.exc_info and record.exc_info[0]:
             data["exception_type"] = record.exc_info[0].__name__
         return json.dumps(data, ensure_ascii=False)
@@ -61,7 +61,7 @@ def configure_logging(level: str) -> None:
     logger.addHandler(handler)
     logger.setLevel(level)
     logger.propagate = False
-    # Uvicorn re-logs unhandled ASGI exceptions; keep its tracebacks out of public logs too.
+    # Uvicorn 会再次记录未处理的 ASGI 异常；同样不把堆栈输出到公开日志。
     server_logger = logging.getLogger("uvicorn.error")
     server_logger.handlers.clear()
     server_logger.addHandler(handler)
@@ -102,7 +102,7 @@ class RequestContextMiddleware:
         try:
             await self.app(scope, receive, send_with_id)
         finally:
-            # Route template excludes query parameters and caller-provided filenames/IDs.
+            # 路由模板排除查询参数以及调用方提供的文件名和 ID。
             route = scope.get("route")
             logger.info(
                 "http_request",

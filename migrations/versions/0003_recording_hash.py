@@ -30,7 +30,7 @@ def upgrade():
     root = Path(context.config.attributes.get("upload_dir") or Settings().upload_dir).resolve()
     rows = conn.execute(sa.text("SELECT id,storage_key,size_bytes FROM recordings")).all()
     hashes, seen = [], {}
-    # Validate every source before any DDL; never delete or merge existing recordings.
+    # 在执行任何 DDL 前校验全部源文件；不删除或合并已有录音。
     for recording_id, key, expected_size in rows:
         try:
             path = (root / key).resolve()
@@ -59,7 +59,7 @@ def upgrade():
         op.execute(sa.text("ALTER TABLE recordings ADD COLUMN content_sha256 CHAR(64) NULL"))
     if hashes:
         conn.execute(sa.text("UPDATE recordings SET content_sha256=:hash WHERE id=:id"), hashes)
-    # MySQL implicitly commits DDL. A restart recomputes the hashes and resumes safely.
+    # MySQL 会隐式提交 DDL；重启后重新计算哈希即可安全继续。
     indexes = {index["name"] for index in sa.inspect(conn).get_indexes("recordings")}
     clause = (
         ""

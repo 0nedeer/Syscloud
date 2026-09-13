@@ -9,7 +9,7 @@ import json
 import sys
 from pathlib import Path
 
-# Direct script invocation otherwise searches scripts/ rather than the project root.
+# 直接运行脚本时，默认工作目录可能是 scripts/ 而不是项目根目录。
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
@@ -38,7 +38,7 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except Exception as exc:
-        # Driver/configuration exceptions can contain credentials and local paths.
+        # 驱动或配置异常可能包含凭据和本机路径。
         print(
             json.dumps({"error": "storage_audit_failed", "type": type(exc).__name__}),
             file=sys.stderr,

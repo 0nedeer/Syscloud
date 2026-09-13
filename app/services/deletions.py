@@ -26,8 +26,7 @@ async def delete_recording(session: AsyncSession, storage: LocalStorage, recordi
         if recording.deleted_at is None:
             recording.deleted_at = datetime.now(UTC).replace(tzinfo=None)
         storage_key = recording.storage_key
-        # Commit the tombstone before touching the filesystem. No new task or result
-        # may treat this recording as live after this transaction commits.
+        # 先提交删除标记再操作文件系统；事务提交后，任何新任务或结果都不能再把录音当作有效记录。
     logger.info("recording_delete_requested", extra={"recording_id": recording_id})
     try:
         await to_thread.run_sync(storage.delete, storage_key)
@@ -43,7 +42,7 @@ async def delete_recording(session: AsyncSession, storage: LocalStorage, recordi
         )
         if recording is None:
             return
-        # Recheck the tombstone so this cleanup cannot delete a replacement row.
+        # 再次检查删除标记，避免清理过程误删替换后的记录。
         if recording.deleted_at is None or recording.storage_key != storage_key:
             return
         await session.execute(delete(Recording).where(Recording.id == recording_id))

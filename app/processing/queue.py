@@ -54,7 +54,7 @@ class TaskQueue:
                 ),
             ),
         )
-        # Discover without locking tasks first: retry/delete lock the recording first too.
+        # 先不加锁发现候选任务；重试和删除也会先锁定录音记录。
         async with self.database.sessions() as session:
             candidates = (
                 await session.execute(

@@ -19,8 +19,7 @@ async def retry_task(session: AsyncSession, task_id: str) -> tuple[RetryResponse
         recording_id = await session.scalar(select(Task.recording_id).where(Task.id == task_id))
         if recording_id is None:
             raise ApiError(404, "task_not_found", "Task not found.")
-        # All mutations take the parent lock first, then task locks. Locking SELECTs
-        # use current reads even if the discovery query established an older RR snapshot.
+        # 所有变更先锁定父记录，再锁定任务记录；加锁查询使用当前读，避免复用发现查询的旧快照。
         recording = await session.scalar(
             select(Recording).where(Recording.id == recording_id).with_for_update()
         )
